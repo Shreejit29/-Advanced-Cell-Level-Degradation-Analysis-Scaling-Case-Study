@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 import os
 from glob import glob
 from sklearn.preprocessing import PolynomialFeatures
@@ -9,19 +10,31 @@ from sklearn.linear_model import LinearRegression
 # SETTINGS
 # =============================
 threshold = 0.8
-max_cycle_limit = 100  # Prediction limit
+max_cycle_limit = 100
+
+# -----------------------------
+# COLOR MAP
+# -----------------------------
+colors = {
+    1: 'blue',
+    2: 'green',
+    3: 'orange'
+}
 
 # =============================
 # PATH
 # =============================
-data_folder = "data/processed/"
+data_folder = r"C:\Users\DELL\Desktop\Case Study\Github\Processed"
+plot_folder = data_folder
+
+os.makedirs(plot_folder, exist_ok=True)
 
 files = glob(os.path.join(data_folder, "*.xlsx"))
 
 print("Files found:", files)
 
 # =============================
-# PROCESS EACH FILE
+# LOOP THROUGH DATASETS
 # =============================
 for file in files:
 
@@ -38,9 +51,9 @@ for file in files:
     capacity = df['Discharge_Capacity'].values
     capacity_norm = capacity / capacity[0]
 
-    # -----------------------------
+    # =============================
     # ACTUAL FAILURE
-    # -----------------------------
+    # =============================
     try:
         actual_index = np.where(capacity_norm <= threshold)[0][0]
         actual_failure = cycle[actual_index]
@@ -49,9 +62,9 @@ for file in files:
 
     print(f"Actual Failure Cycle: {actual_failure}")
 
-    # -----------------------------
-    # EARLY TRAINING (60% BEFORE FAILURE)
-    # -----------------------------
+    # =============================
+    # EARLY TRAINING
+    # =============================
     if actual_failure is not None:
         cutoff_cycle = int(0.6 * actual_failure)
     else:
@@ -65,18 +78,26 @@ for file in files:
 
     print(f"Training up to cycle: {current_cycle}")
 
-    # -----------------------------
+    # =============================
     # FUTURE RANGE (UP TO 100)
-    # -----------------------------
+    # =============================
     future_cycles = np.arange(current_cycle + 1, max_cycle_limit + 1)
 
-    # -----------------------------
+    # =============================
     # MODEL INPUT
-    # -----------------------------
+    # =============================
     X = cycle_early.reshape(-1,1)
     y = cap_early
 
     degrees = [1, 2, 3]
+
+    # =============================
+    # PLOT SETUP
+    # =============================
+    plt.figure(figsize=(8,5))
+
+    # Actual data
+    plt.plot(cycle, capacity_norm, 'o', color='black', label='Actual')
 
     # =============================
     # MODELS
@@ -120,4 +141,60 @@ for file in files:
         print(f"RUL (Remaining Cycles): {rul}")
         print(f"Prediction Error: {error}")
 
-print("\n✅ Capacity Extrapolation Completed!")
+        # -----------------------------
+        # PLOT MODEL
+        # -----------------------------
+        plt.plot(full_cycles, pred,
+                 color=colors[deg],
+                 linewidth=2,
+                 label=f'Degree {deg}')
+
+        # Predicted failure marker
+        if predicted_failure is not None:
+            plt.axvline(x=predicted_failure,
+                        color=colors[deg],
+                        linestyle='--',
+                        alpha=0.7)
+
+    # -----------------------------
+    # THRESHOLD
+    # -----------------------------
+    plt.axhline(y=threshold,
+                color='red',
+                linestyle='--',
+                linewidth=2,
+                label='80% Threshold')
+
+    # Actual failure
+    if actual_failure is not None:
+        plt.axvline(x=actual_failure,
+                    color='red',
+                    linestyle='-',
+                    linewidth=2,
+                    label='Actual Failure')
+
+    # Training cutoff
+    plt.axvline(x=current_cycle,
+                color='purple',
+                linestyle=':',
+                linewidth=2,
+                label='Training Cutoff')
+
+    # -----------------------------
+    # FINAL SETTINGS
+    # -----------------------------
+    plt.xlabel("Cycle Number")
+    plt.ylabel("Normalized Capacity")
+    plt.title(f"Capacity Extrapolation (Early Prediction) - {name}")
+    plt.legend(loc='best', fontsize=9)
+    plt.grid()
+
+    # -----------------------------
+    # SAVE
+    # -----------------------------
+    save_path = os.path.join(plot_folder, f"{name}_capacity_extrapolation_final.png")
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+
+    plt.show()
+
+print("\n✅ Final Capacity Extrapolation Completed!")
