@@ -8,7 +8,7 @@ from glob import glob
 # -----------------------------
 # FOLDER PATH
 # -----------------------------
-folder_path = "data/processed/"
+folder_path = "data/Processed/"
 
 # Get all Excel files
 files = glob(os.path.join(folder_path, "*.xlsx"))
