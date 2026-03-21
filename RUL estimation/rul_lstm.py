@@ -1,23 +1,23 @@
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 import os
 from glob import glob
 
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense
 
-# -----------------------------
+# =============================
 # PARAMETERS
-# -----------------------------
+# =============================
 window = 5
 threshold = 0.8
-future_max = 300
+max_cycle_limit = 100
 
-# -----------------------------
+# =============================
 # PATH
-# -----------------------------
+# =============================
 data_folder = "data/processed/"
+
 files = glob(os.path.join(data_folder, "*.xlsx"))
 
 print("Files found:", files)
@@ -27,10 +27,11 @@ print("Files found:", files)
 # =============================
 for file in files:
 
-    print(f"\nProcessing: {file}")
+    print("\n" + "="*50)
+    print(f"Processing: {file}")
 
     df = pd.read_excel(file)
-    name = os.path.basename(file)
+    name = os.path.basename(file).replace(".xlsx", "")
 
     # -----------------------------
     # DATA PREP
@@ -40,13 +41,40 @@ for file in files:
     capacity_norm = capacity / capacity[0]
 
     # =============================
+    # ACTUAL FAILURE
+    # =============================
+    try:
+        actual_idx = np.where(capacity_norm <= threshold)[0][0]
+        actual_failure = cycle[actual_idx]
+    except:
+        actual_failure = None
+
+    print(f"Actual Failure Cycle: {actual_failure}")
+
+    # =============================
+    # EARLY TRAINING (BEFORE FAILURE)
+    # =============================
+    if actual_failure is not None:
+        cutoff_cycle = int(0.6 * actual_failure)
+    else:
+        cutoff_cycle = int(0.6 * len(cycle))
+
+    mask = cycle <= cutoff_cycle
+    cap_early = capacity_norm[mask]
+    cycle_early = cycle[mask]
+
+    current_cycle = cycle_early[-1]
+
+    print(f"Training up to cycle: {current_cycle}")
+
+    # =============================
     # CREATE SEQUENCES
     # =============================
     X_seq, y_seq = [], []
 
-    for i in range(len(capacity_norm) - window):
-        X_seq.append(capacity_norm[i:i+window])
-        y_seq.append(capacity_norm[i+window])
+    for i in range(len(cap_early) - window):
+        X_seq.append(cap_early[i:i+window])
+        y_seq.append(cap_early[i+window])
 
     X_seq = np.array(X_seq)
     y_seq = np.array(y_seq)
@@ -61,15 +89,17 @@ for file in files:
     model.add(Dense(1))
 
     model.compile(optimizer='adam', loss='mse')
-    model.fit(X_seq, y_seq, epochs=20, verbose=0)
+    model.fit(X_seq, y_seq, epochs=30, verbose=0)
 
     # =============================
-    # FUTURE PREDICTION (ITERATIVE)
+    # FUTURE PREDICTION
     # =============================
-    last_sequence = capacity_norm[-window:].tolist()
+    last_sequence = cap_early[-window:].tolist()
     future_predictions = []
 
-    for _ in range(future_max - len(capacity_norm)):
+    future_steps = max_cycle_limit - current_cycle
+
+    for _ in range(future_steps):
 
         seq_input = np.array(last_sequence[-window:])
         seq_input = seq_input.reshape((1, window, 1))
@@ -82,36 +112,31 @@ for file in files:
     # =============================
     # COMBINE
     # =============================
-    pred_full = np.concatenate([capacity_norm, future_predictions])
+    pred_full = np.concatenate([cap_early, future_predictions])
     full_cycles = np.arange(1, len(pred_full) + 1)
 
     # =============================
-    # FIND RUL (PRINT ONLY)
+    # FIND FAILURE + RUL
     # =============================
+    predicted_failure = None
     rul = None
+    error = None
+
     for i, val in enumerate(pred_full):
         if val <= threshold:
-            rul = full_cycles[i]
+            predicted_failure = full_cycles[i]
+            rul = predicted_failure - current_cycle
+
+            if actual_failure is not None:
+                error = abs(predicted_failure - actual_failure)
             break
 
-    print(f"{name} | LSTM RUL:", rul)
-
     # =============================
-    # 📊 PLOT (NO RUL LINE)
+    # PRINT RESULTS
     # =============================
-    plt.figure(figsize=(8,5))
+    print(f"\n{name} | LSTM Results")
+    print(f"Predicted Failure Cycle: {predicted_failure}")
+    print(f"RUL (Remaining Cycles): {rul}")
+    print(f"Prediction Error: {error}")
 
-    plt.plot(cycle, capacity_norm, label='Actual')
-    plt.plot(full_cycles, pred_full, label='LSTM Prediction')
-
-    plt.axhline(y=threshold, linestyle='--', label='80% Threshold')
-
-    plt.xlabel("Cycle Number")
-    plt.ylabel("Normalized Capacity")
-    plt.title(f"LSTM RUL Prediction (300 cycles) - {name}")
-    plt.legend()
-    plt.grid()
-
-    plt.show()
-
-print("\nLSTM RUL prediction completed!")
+print("\n✅ LSTM Prediction Completed!")
