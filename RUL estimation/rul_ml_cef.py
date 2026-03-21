@@ -1,115 +1,157 @@
+"""
+Linear Regression Based Battery RUL Prediction (Clean Version)
+
+- Input Features: Cycle_Number, CEF
+- Target: Capacity_norm
+- Method: Predict capacity → detect failure (80%)
+- Explainability: SHAP (printed only)
+
+Author: Prathmesh Udekar
+"""
+
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
+import shap
 import os
 from glob import glob
-
-from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.linear_model import LinearRegression
-from sklearn.tree import DecisionTreeRegressor
 
-# -----------------------------
+# =============================
 # PARAMETERS
-# -----------------------------
-k = 5
-threshold = 0.8
-future_max = 300
+# =============================
+THRESHOLD = 0.8
+TRAIN_CYCLES = 10
+MAX_CYCLE_LIMIT = 100
 
-# -----------------------------
+# =============================
 # PATH
-# -----------------------------
-data_folder = "data/processed/"
-files = glob(os.path.join(data_folder, "*.xlsx"))
+# =============================
+DATA_FOLDER = "data/processed/"
+files = glob(os.path.join(DATA_FOLDER, "*.xlsx"))
+
+if not files:
+    raise FileNotFoundError("No dataset files found.")
 
 print("Files found:", files)
 
 # =============================
-# LOOP THROUGH DATASETS
+# MAIN LOOP
 # =============================
 for file in files:
 
-    print(f"\nProcessing: {file}")
+    print("\n" + "="*60)
+    print(f"Processing: {file}")
 
     df = pd.read_excel(file)
-    name = os.path.basename(file)
+    name = os.path.basename(file).replace(".xlsx", "")
 
     # =============================
-    # FEATURE ENGINEERING
+    # FEATURE: CEF
     # =============================
-    df['CEF_exp'] = df['Coulombic_Efficiency'] * np.exp(-k * (1 - df['Energy_Efficiency']))
+    df['CEF'] = 2 / (
+        np.exp(10 * (1 - df['Coulombic_Efficiency'])) +
+        np.exp(10 * (1 - df['Energy_Efficiency']))
+    )
 
-    X = df[['Coulombic_Efficiency', 'Energy_Efficiency', 'CEF_exp']]
-    y = df['Discharge_Capacity'] / df['Discharge_Capacity'].iloc[0]
+    # =============================
+    # TARGET: NORMALIZED CAPACITY
+    # =============================
+    df['Capacity_norm'] = df['Discharge_Capacity'] / df['Discharge_Capacity'].iloc[0]
 
     cycle = df['Cycle_Number'].values
+    capacity = df['Capacity_norm'].values
 
     # =============================
-    # FUTURE DATA (UP TO 300)
+    # ACTUAL FAILURE
     # =============================
-    last_row = df.iloc[-1]
-
-    future_cycles = np.arange(cycle[-1] + 1, future_max + 1)
-
-    future_df = pd.DataFrame({
-        'Coulombic_Efficiency': [last_row['Coulombic_Efficiency']] * len(future_cycles),
-        'Energy_Efficiency': [last_row['Energy_Efficiency']] * len(future_cycles)
-    })
-
-    future_df['CEF_exp'] = future_df['Coulombic_Efficiency'] * np.exp(-k * (1 - future_df['Energy_Efficiency']))
-
-    X_future = future_df
+    try:
+        actual_idx = np.where(capacity <= THRESHOLD)[0][0]
+        actual_failure = int(cycle[actual_idx])
+    except:
+        print("No failure detected → skipping")
+        continue
 
     # =============================
-    # MODELS
+    # TRAIN DATA
     # =============================
-    models = {
-        "Linear": LinearRegression(),
-        "Decision Tree": DecisionTreeRegressor(),
-        "Random Forest": RandomForestRegressor(),
-        "Gradient Boosting": GradientBoostingRegressor()
-    }
+    train_df = df[df['Cycle_Number'] <= TRAIN_CYCLES]
+
+    if len(train_df) < 3:
+        print("Not enough training data → skipping")
+        continue
+
+    current_cycle = int(train_df['Cycle_Number'].iloc[-1])
+
+    print(f"\nTraining up to cycle: {current_cycle}")
+    print(f"Training samples: {len(train_df)}")
+    print(f"Actual Failure Cycle: {actual_failure}")
 
     # =============================
-    # TRAIN + DISPLAY PLOTS
+    # FEATURES
     # =============================
-    for model_name, model in models.items():
+    X_train = train_df[['Cycle_Number', 'CEF']]
+    y_train = train_df['Capacity_norm']
 
-        model.fit(X, y)
+    # =============================
+    # MODEL
+    # =============================
+    model = LinearRegression()
+    model.fit(X_train, y_train)
 
-        # Predict past + future
-        pred_past = model.predict(X)
-        pred_future = model.predict(X_future)
+    # =============================
+    # FUTURE PREDICTION
+    # =============================
+    future_cycles = np.arange(current_cycle + 1, MAX_CYCLE_LIMIT + 1)
 
-        pred_full = np.concatenate([pred_past, pred_future])
-        full_cycles = np.concatenate([cycle, future_cycles])
+    cef_last = train_df['CEF'].iloc[-1]
+    decay_rate = 0.03
+    cef_future = cef_last * np.exp(-decay_rate * np.arange(len(future_cycles)))
 
-        # -----------------------------
-        # FIND RUL (PRINT ONLY)
-        # -----------------------------
-        rul = None
-        for i, val in enumerate(pred_full):
-            if val <= threshold:
-                rul = full_cycles[i]
-                break
+    X_future = np.column_stack((future_cycles, cef_future))
 
-        print(f"{name} | {model_name} RUL:", rul)
+    pred_past = model.predict(X_train)
+    pred_future = model.predict(X_future)
 
-        # =============================
-        # 📊 PLOT (NO RUL LINE)
-        # =============================
-        plt.figure(figsize=(8,5))
+    full_cycles = np.concatenate([train_df['Cycle_Number'], future_cycles])
+    pred_full = np.concatenate([pred_past, pred_future])
 
-        plt.plot(cycle, y, label='Actual')
-        plt.plot(full_cycles, pred_full, label=model_name)
+    # =============================
+    # FAILURE DETECTION
+    # =============================
+    predicted_failure = None
 
-        plt.axhline(y=threshold, linestyle='--', label='80% Threshold')
+    for i, val in enumerate(pred_full):
+        if val <= THRESHOLD:
+            predicted_failure = int(full_cycles[i])
+            break
 
-        plt.xlabel("Cycle Number")
-        plt.ylabel("Normalized Capacity")
-        plt.title(f"{model_name} Prediction (300 cycles) - {name}")
-        plt.legend()
-        plt.grid()
+    if predicted_failure is None:
+        print("\n⚠️ No failure predicted")
+        continue
 
-        plt.show()
+    predicted_rul = predicted_failure - current_cycle
+    error = abs(predicted_failure - actual_failure)
 
-print("\nRUL ML (CEF-based) completed!")
+    # =============================
+    # PRINT RESULTS
+    # =============================
+    print("\n----------------------------")
+    print(f"{name} | Linear Regression")
+    print(f"Predicted Failure Cycle: {predicted_failure}")
+    print(f"RUL: {predicted_rul}")
+    print(f"Error: {error}")
+
+    # =============================
+    # SHAP ANALYSIS (PRINT ONLY)
+    # =============================
+    explainer = shap.LinearExplainer(model, X_train)
+    shap_values = explainer.shap_values(X_train)
+
+    feature_names = ['Cycle_Number', 'CEF']
+    importance = np.mean(np.abs(shap_values), axis=0)
+
+    print("\nFeature Importance (Mean |SHAP|):")
+    for f, imp in zip(feature_names, importance):
+        print(f"{f}: {imp:.4f}")
+
+print("\n✅ CLEAN EXECUTION COMPLETE (NO FILES SAVED)")
