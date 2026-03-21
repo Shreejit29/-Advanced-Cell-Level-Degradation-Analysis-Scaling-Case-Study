@@ -1,51 +1,82 @@
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 import os
 from glob import glob
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.linear_model import LinearRegression
 
-# -----------------------------
+# =============================
+# SETTINGS
+# =============================
+threshold = 0.8
+max_cycle_limit = 100  # Prediction limit
+
+# =============================
 # PATH
-# -----------------------------
+# =============================
 data_folder = "data/processed/"
+
 files = glob(os.path.join(data_folder, "*.xlsx"))
 
 print("Files found:", files)
 
 # =============================
-# LOOP THROUGH DATASETS
+# PROCESS EACH FILE
 # =============================
 for file in files:
 
-    print(f"\nProcessing: {file}")
+    print("\n" + "="*50)
+    print(f"Processing: {file}")
 
     df = pd.read_excel(file)
-    name = os.path.basename(file)
+    name = os.path.basename(file).replace(".xlsx", "")
 
     # -----------------------------
     # DATA PREP
     # -----------------------------
     cycle = df['Cycle_Number'].values
     capacity = df['Discharge_Capacity'].values
-
     capacity_norm = capacity / capacity[0]
-    threshold = 0.8
 
-    X = cycle.reshape(-1,1)
-    y = capacity_norm
+    # -----------------------------
+    # ACTUAL FAILURE
+    # -----------------------------
+    try:
+        actual_index = np.where(capacity_norm <= threshold)[0][0]
+        actual_failure = cycle[actual_index]
+    except:
+        actual_failure = None
 
-    future_cycles = np.arange(1, 300).reshape(-1,1)
+    print(f"Actual Failure Cycle: {actual_failure}")
+
+    # -----------------------------
+    # EARLY TRAINING (60% BEFORE FAILURE)
+    # -----------------------------
+    if actual_failure is not None:
+        cutoff_cycle = int(0.6 * actual_failure)
+    else:
+        cutoff_cycle = int(0.6 * len(cycle))
+
+    mask = cycle <= cutoff_cycle
+    cycle_early = cycle[mask]
+    cap_early = capacity_norm[mask]
+
+    current_cycle = cycle_early[-1]
+
+    print(f"Training up to cycle: {current_cycle}")
+
+    # -----------------------------
+    # FUTURE RANGE (UP TO 100)
+    # -----------------------------
+    future_cycles = np.arange(current_cycle + 1, max_cycle_limit + 1)
+
+    # -----------------------------
+    # MODEL INPUT
+    # -----------------------------
+    X = cycle_early.reshape(-1,1)
+    y = cap_early
 
     degrees = [1, 2, 3]
-
-    # =============================
-    # PLOT
-    # =============================
-    plt.figure(figsize=(8,5))
-
-    plt.plot(cycle, capacity_norm, 'o', label='Actual')
 
     # =============================
     # MODELS
@@ -58,31 +89,35 @@ for file in files:
         model = LinearRegression()
         model.fit(X_poly, y)
 
-        future_poly = poly.transform(future_cycles)
-        pred = model.predict(future_poly)
+        # Combine early + future
+        full_cycles = np.concatenate([cycle_early, future_cycles])
+        full_cycles_reshaped = full_cycles.reshape(-1,1)
 
-        # Find RUL (print only)
-        try:
-            rul_index = np.where(pred <= threshold)[0][0]
-            rul = future_cycles[rul_index][0]
-        except:
-            rul = None
+        full_poly = poly.transform(full_cycles_reshaped)
+        pred = model.predict(full_poly)
 
-        print(f"{name} | Degree {deg} RUL:", rul)
+        # -----------------------------
+        # FIND FAILURE
+        # -----------------------------
+        predicted_failure = None
+        rul = None
+        error = None
 
-        # Plot only curve
-        plt.plot(future_cycles, pred, label=f'Poly deg {deg}')
+        for i, val in enumerate(pred):
+            if val <= threshold:
+                predicted_failure = full_cycles[i]
+                rul = predicted_failure - current_cycle
 
-    # Threshold line
-    plt.axhline(y=threshold, linestyle='--', label='80% Threshold')
+                if actual_failure is not None:
+                    error = abs(predicted_failure - actual_failure)
+                break
 
-    # Labels
-    plt.xlabel("Cycle Number")
-    plt.ylabel("Normalized Capacity")
-    plt.title(f"Capacity Fade Extrapolation - {name}")
-    plt.legend()
-    plt.grid()
+        # -----------------------------
+        # PRINT RESULTS
+        # -----------------------------
+        print(f"\n{name} | Degree {deg}")
+        print(f"Predicted Failure Cycle: {predicted_failure}")
+        print(f"RUL (Remaining Cycles): {rul}")
+        print(f"Prediction Error: {error}")
 
-    plt.show()
-
-print("\nRUL extrapolation completed!")
+print("\n✅ Capacity Extrapolation Completed!")
