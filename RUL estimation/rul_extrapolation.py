@@ -24,10 +24,8 @@ colors = {
 # =============================
 # PATH
 # =============================
-data_folder = r"C:\Users\DELL\Desktop\Case Study\Github\Processed"
-plot_folder = data_folder
+data_folder = "data/processed/"
 
-os.makedirs(plot_folder, exist_ok=True)
 
 files = glob(os.path.join(data_folder, "*.xlsx"))
 
@@ -189,12 +187,7 @@ for file in files:
     plt.legend(loc='best', fontsize=9)
     plt.grid()
 
-    # -----------------------------
-    # SAVE
-    # -----------------------------
-    save_path = os.path.join(plot_folder, f"{name}_capacity_extrapolation_final.png")
-    plt.savefig(save_path, dpi=300, bbox_inches='tight')
-
+  
     plt.show()
 
 print("\n✅ Final Capacity Extrapolation Completed!")
