@@ -1,12 +1,13 @@
 Advanced-Cell-Level-Degradation-Analysis-Scaling-Case-Study
 This project provides a comprehensive analysis of battery capacity degradation and remaining useful life (RUL) using experimental cycling data. It processes raw battery test data, computes health metrics, detects anomalous cycles, and applies multiple modeling approaches (statistical and machine learning) to predict end-of-life. Key steps include cleaning and structuring the data, deriving features like Coulombic/Energy Efficiency and a Combined Efficiency Factor (CEF), applying anomaly detection algorithms, and forecasting RUL with extrapolation, linear regression, and LSTM models. The goal is to identify the cycle at which capacity drops below 80% of initial value (the defined end-of-life threshold) and to flag early signs of degradation.
 
-**•	Data Preprocessing: Clean raw data and aggregate per cycle. **
+•	Data Preprocessing: Clean raw data and aggregate per cycle.
 •	Efficiency Metrics: Compute per-cycle Coulombic Efficiency, Energy Efficiency, and the Combined Efficiency Factor (CEF). 
 •	Anomaly Detection: Use statistical and ML methods (Isolation Forest, LOF, Mahalanobis, K-Means) to flag abnormal cycles.
 •	Advanced Degradation Modeling: Analyze battery degradation behavior using multiple approaches: Capacity fade analysis (cycle-by-cycle degradation trends), Different modelling approaches (regression-based fitting), Differential voltage (dV/dQ) analysis for electrochemical insights and Coulombic efficiency trend analysis for performance degradation
 •	RUL Modeling: Predict remaining life through polynomial extrapolation, linear regression with CEF, and LSTM-based forecasting. 
 These components form an end-to-end pipeline for battery health evaluation and RUL prediction.
+
 Folder Structure
 •	data/raw/ – Contains the raw battery test data files (Excel format). Each file holds the original time-series measurements for charging and discharging cycles. 
 •	data/Processed/ – Stores the processed output data files (Excel). After preprocessing, each file has one row per cycle with computed features (capacities, energies, efficiencies). 
@@ -38,6 +39,7 @@ This folder contains all plots generated during model execution (if saved manual
 •	SHAP analysis plots showing feature impact (Cycle Number, CEF)
 •	Other Files: Project documentation or reports (e.g. analysis write-ups) may be present in additional folders like docs/ or as standalone documents. 
 •	Outputs: The scripts generate console outputs and plots unless data/Processed/ and data/raw/ manually saved. 
+
 Installation Instructions
 1.	Python Environment: Ensure Python 3.x is installed (Python 3.7 or higher recommended). Optionally create and activate a virtual environment. 
 2.	Dependencies: Install required libraries. For example:
@@ -58,6 +60,7 @@ Dataset Format
 	Charge_C_Rate and Discharge_C_Rate: Charging/discharging current normalized by nominal capacity. 
 	(Other columns such as cycle duration and aggregated currents may also be present.)
 	These processed files serve as the input for anomaly detection and RUL modeling. 
+
 Step-by-Step Instructions for Running Scripts
 1.	Preprocess Data:
 Run:
@@ -97,6 +100,7 @@ Run:
 python rul_lstm.py
 This script prepares the normalized capacity sequence and selects early-cycle data (up to 60% of the cycle range). It constructs overlapping sequences of a fixed window size (default 5) and trains an LSTM neural network to predict the next capacity value. After training (30 epochs by default), it feeds the final sequence to recursively forecast capacity until the maximum cycle. It then finds when the predicted capacity reaches the 0.8 threshold. The console output displays the predicted failure cycle and RUL (cycles remaining), along with the prediction error if the actual failure is known. A plot of actual vs. LSTM-predicted capacity over cycles is shown.
 Note: The LSTM may require parameter tuning (window size, network size, epochs) and sufficient data for stable predictions. Use a machine with TensorFlow/GPU support if available for faster training.
+
 Outputs Generated
 •	Processed Data Files: After preprocessing, cleaned Excel files are saved in data/Processed/. Each file corresponds to an input raw file (e.g., Raw_dataset_1.xlsx). 
 •	Console Reports: Each script prints results to the terminal. The anomaly detection script reports the count of outlier cycles per method. The RUL scripts report predicted failure cycles, remaining life (RUL), and any error compared to known failure. Also Advanced Degradation Modeling:
