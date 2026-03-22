@@ -3,18 +3,16 @@ import matplotlib.pyplot as plt
 import os
 from glob import glob
 
-# -----------------------------
-# PATHS (CHANGE IF NEEDED)
-# -----------------------------
+
+# PATH
+-
 data_folder = "data/Processed/"
 
 files = glob(os.path.join(data_folder, "*.xlsx"))
 
 print("Files found:", files)
 
-# =============================
-# 1️⃣ SEPARATE PLOTS
-# =============================
+# Seperate Plots
 for file in files:
 
     df = pd.read_excel(file)
@@ -33,9 +31,7 @@ for file in files:
     plt.show()
 
 
-# =============================
-# 2️⃣ COMBINED PLOT
-# =============================
+# Combined Plots
 plt.figure(figsize=(8,5))
 
 for file in files:
