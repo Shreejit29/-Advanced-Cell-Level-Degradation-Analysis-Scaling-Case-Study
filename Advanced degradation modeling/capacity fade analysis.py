@@ -5,32 +5,32 @@ from scipy.optimize import curve_fit
 import os
 from glob import glob
 
-# -----------------------------
+
 # FOLDER PATH
-# -----------------------------
+
 folder_path = "data/Processed/"
 
 # Get all Excel files
 files = glob(os.path.join(folder_path, "*.xlsx"))
 
-# -----------------------------
+
 # MODEL FUNCTIONS
-# -----------------------------
+-
 def exponential_model(n, k):
     return np.exp(-k * n)
 
 def sqrt_model(n, k):
     return 1 - k * np.sqrt(n)
 
-# -----------------------------
+
 # ERROR FUNCTION
-# -----------------------------
+
 def rmse(y, y_pred):
     return np.sqrt(np.mean((y - y_pred) ** 2))
 
-# -----------------------------
+-
 # PROCESS ALL FILES
-# -----------------------------
+
 for file in files:
 
     print(f"\nProcessing: {file}")
