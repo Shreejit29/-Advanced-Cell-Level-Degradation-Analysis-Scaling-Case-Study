@@ -16,7 +16,7 @@ max_cycle_limit = 100
 # =============================
 # PATH
 # =============================
-data_folder = r"C:\Users\DELL\Desktop\Case Study\Github\Processed"
+data_folder = "data/processed/"
 
 
 files = glob(os.path.join(data_folder, "*.xlsx"))
