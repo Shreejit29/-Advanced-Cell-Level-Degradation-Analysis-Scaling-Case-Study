@@ -6,7 +6,7 @@ from glob import glob
 # -----------------------------
 # PATHS (CHANGE IF NEEDED)
 # -----------------------------
-data_folder = "data\Processed"
+data_folder = "data/Processed/"
 
 files = glob(os.path.join(data_folder, "*.xlsx"))
 
