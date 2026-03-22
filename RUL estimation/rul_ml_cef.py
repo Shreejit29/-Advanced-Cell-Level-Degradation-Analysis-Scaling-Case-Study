@@ -6,16 +6,16 @@ import os
 from glob import glob
 from sklearn.linear_model import LinearRegression
 
-# =============================
+
 # PARAMETERS
-# =============================
+
 threshold = 0.8
 train_cycles = 5   # you can change (5, 10, 15)
 max_cycle_limit = 100
 
-# =============================
+
 # PATH
-# =============================
+
 data_folder = "data/processed/"
 
 
@@ -23,9 +23,9 @@ files = glob(os.path.join(data_folder, "*.xlsx"))
 
 print("Files found:", files)
 
-# =============================
+
 # LOOP
-# =============================
+
 for file in files:
 
     print("\n" + "="*70)
@@ -34,39 +34,39 @@ for file in files:
     df = pd.read_excel(file)
     name = os.path.basename(file).replace(".xlsx", "")
 
-    # =============================
+    
     # CEF
-    # =============================
+    
     df['CEF'] = 2 / (
         np.exp(10 * (1 - df['Coulombic_Efficiency'])) +
         np.exp(10 * (1 - df['Energy_Efficiency']))
     )
 
-    # =============================
+    
     # CAPACITY
-    # =============================
+    
     df['Capacity_norm'] = df['Discharge_Capacity'] / df['Discharge_Capacity'].iloc[0]
 
     cycle = df['Cycle_Number'].values
     capacity = df['Capacity_norm'].values
 
-    # =============================
+    
     # ACTUAL FAILURE
-    # =============================
+    
     try:
         actual_idx = np.where(capacity <= threshold)[0][0]
         actual_failure = int(cycle[actual_idx])
     except:
-        print("⚠️ No failure found → skipping")
+        print(" No failure found → skipping")
         continue
 
-    # =============================
+   
     # TRAIN DATA
-    # =============================
+    
     train_df = df[df['Cycle_Number'] <= train_cycles]
 
     if len(train_df) < 3:
-        print("⚠️ Not enough training data")
+        print(" Not enough training data")
         continue
 
     current_cycle = int(train_df['Cycle_Number'].iloc[-1])
@@ -74,21 +74,21 @@ for file in files:
     print(f"\nTraining up to cycle: {current_cycle}")
     print(f"Actual Failure Cycle: {actual_failure}")
 
-    # =============================
+    
     # FEATURES
-    # =============================
+    
     X_train = train_df[['Cycle_Number', 'CEF']]
     y_train = train_df['Capacity_norm']
 
-    # =============================
+   
     # MODEL
-    # =============================
+   
     model = LinearRegression()
     model.fit(X_train, y_train)
 
-    # =============================
+    
     # FUTURE PREDICTION
-    # =============================
+    
     future_cycles = np.arange(current_cycle + 1, max_cycle_limit + 1)
 
     cef_last = train_df['CEF'].iloc[-1]
@@ -103,9 +103,9 @@ for file in files:
     full_cycles = np.concatenate([train_df['Cycle_Number'], future_cycles])
     pred_full = np.concatenate([pred_past, pred_future])
 
-    # =============================
+    
     # FIND FAILURE
-    # =============================
+    
     predicted_failure = None
 
     for i, val in enumerate(pred_full):
@@ -114,23 +114,23 @@ for file in files:
             break
 
     if predicted_failure is None:
-        print("⚠️ No failure predicted")
+        print(" No failure predicted")
         continue
 
     predicted_rul = predicted_failure - current_cycle
     error = abs(predicted_failure - actual_failure)
 
-    # =============================
+   
     # PRINT RESULTS
-    # =============================
+    
     print(f"\n{name} | Linear Regression")
     print(f"Predicted Failure Cycle: {predicted_failure}")
     print(f"RUL: {predicted_rul}")
     print(f"Error: {error}")
 
-    # =============================
-    # 🔥 PLOT 
-    # =============================
+    
+    #  PLOT 
+   
     plt.figure(figsize=(8,5))
 
     plt.plot(cycle, capacity, 'o', color='black', label='Actual')
@@ -149,9 +149,9 @@ for file in files:
 
     plt.show()
 
-    # =============================
-    # 🔥 SHAP ANALYSIS (LINEAR)
-    # =============================
+    
+    #  SHAP ANALYSIS 
+    
     explainer = shap.LinearExplainer(model, X_train)
     shap_values = explainer.shap_values(X_train)
 
@@ -163,9 +163,9 @@ for file in files:
         importance = np.mean(np.abs(shap_values[:, i]))
         print(f"{feat}: {importance:.4f}")
 
-    # =============================
+    
     # SHAP PLOT
-    # =============================
+    
     plt.figure()
 
     shap.summary_plot(
@@ -178,4 +178,4 @@ for file in files:
   
     plt.show()
 
-print("\n✅ LINEAR MODEL + PLOTS + SHAP COMPLETE!")
+print("\n LINEAR MODEL + PLOTS + SHAP COMPLETE!")
