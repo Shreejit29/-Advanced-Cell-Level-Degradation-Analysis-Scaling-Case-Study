@@ -163,6 +163,6 @@ for file in files:
     plt.grid()
 
 
-    plt.close()
+    plt.show()
 
 print("\n✅ LSTM early prediction complete!")
