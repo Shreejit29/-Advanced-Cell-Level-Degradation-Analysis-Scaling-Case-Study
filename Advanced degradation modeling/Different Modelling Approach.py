@@ -11,22 +11,22 @@ from sklearn.metrics import mean_squared_error
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import SimpleRNN, LSTM, Dense
 
-# -----------------------------
+
 # PATH
-# -----------------------------
+
 data_folder = "data/processed/"
 files = glob(os.path.join(data_folder, "*.xlsx"))
 
-# -----------------------------
+
 # FUNCTION: RMSE
-# -----------------------------
+-
 def rmse(y_true, y_pred):
     return np.sqrt(mean_squared_error(y_true, y_pred))
 
 
-# =============================
+
 # LOOP THROUGH DATASETS
-# =============================
+
 for file in files:
 
     print(f"\nProcessing: {file}")
@@ -34,25 +34,23 @@ for file in files:
     df = pd.read_excel(file)
     name = os.path.basename(file)
 
-    # -----------------------------
+--
     # DATA PREPARATION
-    # -----------------------------
+
     X = df[['Cycle_Number']].values
     y = df['Discharge_Capacity'].values
 
     # Normalize
     y_norm = y / y[0]
 
-    # -----------------------------
     # LINEAR REGRESSION
-    # -----------------------------
+    
     lin_model = LinearRegression()
     lin_model.fit(X, y_norm)
     y_pred_lin = lin_model.predict(X)
 
-    # -----------------------------
     # POLYNOMIAL REGRESSION
-    # -----------------------------
+
     poly = PolynomialFeatures(degree=2)
     X_poly = poly.fit_transform(X)
 
@@ -60,9 +58,8 @@ for file in files:
     poly_model.fit(X_poly, y_norm)
     y_pred_poly = poly_model.predict(X_poly)
 
-    # -----------------------------
     # SEQUENCE DATA (RNN/LSTM)
-    # -----------------------------
+
     window = 5
     data = y_norm
 
@@ -77,9 +74,9 @@ for file in files:
 
     X_seq = X_seq.reshape((X_seq.shape[0], X_seq.shape[1], 1))
 
-    # -----------------------------
+    
     # RNN MODEL
-    # -----------------------------
+ 
     model_rnn = Sequential()
     model_rnn.add(SimpleRNN(50, activation='relu', input_shape=(window, 1)))
     model_rnn.add(Dense(1))
@@ -89,9 +86,8 @@ for file in files:
 
     y_pred_rnn = model_rnn.predict(X_seq).flatten()
 
-    # -----------------------------
     # LSTM MODEL
-    # -----------------------------
+
     model_lstm = Sequential()
     model_lstm.add(LSTM(50, activation='relu', input_shape=(window, 1)))
     model_lstm.add(Dense(1))
@@ -101,17 +97,17 @@ for file in files:
 
     y_pred_lstm = model_lstm.predict(X_seq).flatten()
 
-    # -----------------------------
+   
     # PRINT ERRORS
-    # -----------------------------
+ 
     print("Linear RMSE:", rmse(y_norm, y_pred_lin))
     print("Polynomial RMSE:", rmse(y_norm, y_pred_poly))
     print("RNN RMSE:", rmse(y_seq, y_pred_rnn))
     print("LSTM RMSE:", rmse(y_seq, y_pred_lstm))
 
-    # =============================
-    # 📊 SEPARATE PLOTS
-    # =============================
+ 
+    # SEPARATE PLOTS
+=
 
     # Linear
     plt.figure()
@@ -141,9 +137,8 @@ for file in files:
     plt.grid()
     plt.show()
 
-    # =============================
-    # 📊 COMBINED PLOT
-    # =============================
+    # COMBINED PLOT
+
     plt.figure()
 
     plt.plot(X, y_norm, 'o', label='Actual')
