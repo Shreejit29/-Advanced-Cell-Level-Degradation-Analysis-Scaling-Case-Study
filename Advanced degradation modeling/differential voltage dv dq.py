@@ -5,21 +5,21 @@ from glob import glob
 import os
 from scipy.signal import savgol_filter
 
-# -----------------------------
+
 # PATH
-# -----------------------------
+
 data_folder = "data/raw/"
 
 files = glob(os.path.join(data_folder, "*.xlsx"))
 
-# -----------------------------
+-
 # SELECTED CYCLES
-# -----------------------------
+
 cycles_to_plot = [1, 50, 99]
 
-# -----------------------------
+-
 # FUNCTION: dV/dQ
-# -----------------------------
+
 def compute_dVdQ(df_cycle):
 
     df_cycle = df_cycle[df_cycle['Current(A)'] < 0]
@@ -46,9 +46,9 @@ def compute_dVdQ(df_cycle):
     return Q_mid, dVdQ
 
 
-# =============================
-# 1️⃣ SEPARATE PLOTS
-# =============================
+
+# SEPARATE PLOTS
+
 for file in files:
 
     print(f"\nProcessing: {file}")
@@ -82,9 +82,9 @@ for file in files:
     plt.show()
 
 
-# =============================
-# 2️⃣ COMBINED PLOT
-# =============================
+
+#  COMBINED PLOT
+
 plt.figure(figsize=(8,5))
 
 for file in files:
