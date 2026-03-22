@@ -3,17 +3,16 @@ import numpy as np
 import os
 from glob import glob
 
-# -----------------------------
+
 # PATH CONFIG
-# -----------------------------
+
 input_folder = "data/raw/"
 output_folder = "data/Processed/"
 
 os.makedirs(output_folder, exist_ok=True)
 
-# -----------------------------
 # TIME CONVERSION FUNCTION
-# -----------------------------
+
 def convert_time(x):
     try:
         if hasattr(x, 'hour'):
@@ -31,45 +30,44 @@ def convert_time(x):
         return np.nan
 
 
-# -----------------------------
+
 # PROCESS ONE FILE
-# -----------------------------
+
 def process_file(file_path):
 
     df = pd.read_excel(file_path)
 
     base_name = os.path.splitext(os.path.basename(file_path))[0]
 
-    # -----------------------------
     # HANDLE MISSING VALUES
-    # -----------------------------
+
     df = df.fillna(method='ffill').fillna(method='bfill')
 
-    # -----------------------------
+ 
     # TIME PROCESSING
-    # -----------------------------
+  
     df['Time_Hours'] = df['Test_Time(s)'].apply(convert_time)
     df['Time_Hours'] = df['Time_Hours'].abs()
 
-    # -----------------------------
+  
     # REMOVE ANOMALIES
-    # -----------------------------
+    
     df = df[
         (df['Voltage(V)'] > 0) & (df['Voltage(V)'] < 5) &
         (df['Capacity(Ah)'] >= 0)
     ]
 
-    # -----------------------------
+
     # CYCLE DURATION
-    # -----------------------------
+
     cycle_time = df.groupby('Cycle_Index')['Time_Hours'].agg(['min', 'max'])
     cycle_time['Cycle_Duration'] = cycle_time['max'] - cycle_time['min']
 
     df = df.merge(cycle_time['Cycle_Duration'], on='Cycle_Index', how='left')
 
-    # -----------------------------
+
     # CLEAN DATA
-    # -----------------------------
+
     df = df.drop(['Test_Time(s)', 'Date_Time'], axis=1, errors='ignore')
 
     df = df[
@@ -79,18 +77,17 @@ def process_file(file_path):
 
     df = df[df['Current(A)'] != 0].reset_index(drop=True)
 
-    # -----------------------------
     # AVERAGE CURRENT
-    # -----------------------------
+ 
     charge_current = df[df['Current(A)'] > 0].groupby('Cycle_Index')['Current(A)'].mean()
     discharge_current = df[df['Current(A)'] < 0].groupby('Cycle_Index')['Current(A)'].mean()
 
     df = df.merge(charge_current.rename('Avg_Charge_Current'), on='Cycle_Index', how='left')
     df = df.merge(discharge_current.rename('Avg_Discharge_Current'), on='Cycle_Index', how='left')
 
-    # -----------------------------
+  
     # PHASE DETECTION
-    # -----------------------------
+
     df['Current_Sign'] = df['Current(A)'] > 0
     df['Sign_Change'] = df['Current_Sign'] != df['Current_Sign'].shift(1)
 
@@ -107,9 +104,9 @@ def process_file(file_path):
 
     final_dataset = final_dataset.drop(['Current_Sign', 'Sign_Change'], axis=1)
 
-    # -----------------------------
+    
     # SPLIT CHARGE / DISCHARGE
-    # -----------------------------
+
     final_dataset['Charge_Capacity'] = np.where(final_dataset['Current(A)'] > 0,
                                                 final_dataset['Capacity(Ah)'], 0)
 
@@ -132,14 +129,13 @@ def process_file(file_path):
         (final_dataset['Discharge_Capacity'] > 0)
     ].reset_index(drop=True)
 
-    # -----------------------------
     # CYCLE NUMBER
-    # -----------------------------
+    
     final_dataset.insert(0, 'Cycle_Number', range(1, len(final_dataset) + 1))
 
-    # -----------------------------
+   
     # EFFICIENCIES
-    # -----------------------------
+   
     final_dataset['Coulombic_Efficiency'] = (
         final_dataset['Discharge_Capacity'] / final_dataset['Charge_Capacity']
     )
@@ -148,24 +144,23 @@ def process_file(file_path):
         final_dataset['Discharge_Energy'] / final_dataset['Charge_Energy']
     )
 
-    # -----------------------------
+    
     # ENERGY THROUGHPUT
-    # -----------------------------
+    
     final_dataset['Energy_Throughput'] = (
         final_dataset['Charge_Energy'] + final_dataset['Discharge_Energy']
     )
 
-    # -----------------------------
-    # C-RATES
-    # -----------------------------
+   # C-RATES
+   
     nominal_capacity = final_dataset['Charge_Capacity'].iloc[0]
 
     final_dataset['Charge_C_Rate'] = final_dataset['Avg_Charge_Current'] / nominal_capacity
     final_dataset['Discharge_C_Rate'] = abs(final_dataset['Avg_Discharge_Current']) / nominal_capacity
 
-    # -----------------------------
+ 
     # FINAL CLEANING
-    # -----------------------------
+ 
     final_dataset = final_dataset.fillna(method='ffill').fillna(method='bfill')
 
     final_dataset = final_dataset[
@@ -176,9 +171,8 @@ def process_file(file_path):
     return final_dataset, base_name
 
 
-# -----------------------------
 # PROCESS ALL FILES
-# -----------------------------
+
 for file_path in glob(os.path.join(input_folder, "*.xlsx")):
 
     final_dataset, name = process_file(file_path)
