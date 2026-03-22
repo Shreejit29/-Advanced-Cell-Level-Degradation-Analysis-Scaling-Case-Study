@@ -147,7 +147,7 @@ for file in files:
     plt.legend()
     plt.grid()
 
-    plt.close()
+    plt.show()
 
     # =============================
     # 🔥 SHAP ANALYSIS (LINEAR)
@@ -176,6 +176,6 @@ for file in files:
     )
 
   
-    plt.close()
+    plt.show()
 
 print("\n✅ LINEAR MODEL + PLOTS + SHAP COMPLETE!")
