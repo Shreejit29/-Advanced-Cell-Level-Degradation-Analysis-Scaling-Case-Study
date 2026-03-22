@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 import os
 from glob import glob
 
@@ -14,16 +15,17 @@ threshold = 0.8
 max_cycle_limit = 100
 
 # =============================
-# PATH
+# PATHS
 # =============================
 data_folder = "data/processed/"
+
 
 files = glob(os.path.join(data_folder, "*.xlsx"))
 
 print("Files found:", files)
 
 # =============================
-# LOOP THROUGH DATASETS
+# LOOP
 # =============================
 for file in files:
 
@@ -34,7 +36,7 @@ for file in files:
     name = os.path.basename(file).replace(".xlsx", "")
 
     # -----------------------------
-    # DATA PREP
+    # DATA
     # -----------------------------
     cycle = df['Cycle_Number'].values
     capacity = df['Discharge_Capacity'].values
@@ -52,7 +54,7 @@ for file in files:
     print(f"Actual Failure Cycle: {actual_failure}")
 
     # =============================
-    # EARLY TRAINING (BEFORE FAILURE)
+    # 🔥 EARLY TRAINING
     # =============================
     if actual_failure is not None:
         cutoff_cycle = int(0.6 * actual_failure)
@@ -131,12 +133,36 @@ for file in files:
                 error = abs(predicted_failure - actual_failure)
             break
 
-    # =============================
-    # PRINT RESULTS
-    # =============================
-    print(f"\n{name} | LSTM Results")
+    print(f"\n{name} | LSTM")
     print(f"Predicted Failure Cycle: {predicted_failure}")
-    print(f"RUL (Remaining Cycles): {rul}")
-    print(f"Prediction Error: {error}")
+    print(f"RUL: {rul}")
+    print(f"Error: {error}")
 
-print("\n✅ LSTM Prediction Completed!")
+    # =============================
+    # 📊 PLOT
+    # =============================
+    plt.figure(figsize=(8,5))
+
+    plt.plot(cycle, capacity_norm, color='black', label='Actual')
+    plt.plot(full_cycles, pred_full, color='blue', label='LSTM Prediction')
+
+    plt.axhline(y=threshold, color='red', linestyle='--', label='80% Threshold')
+
+    if predicted_failure is not None:
+        plt.axvline(x=predicted_failure, linestyle='--', label='Predicted')
+
+    if actual_failure is not None:
+        plt.axvline(x=actual_failure, color='red', linestyle='-', label='Actual')
+
+    plt.axvline(x=current_cycle, color='purple', linestyle=':', label='Training Cutoff')
+
+    plt.xlabel("Cycle Number")
+    plt.ylabel("Normalized Capacity")
+    plt.title(f"LSTM Early Prediction - {name}")
+    plt.legend()
+    plt.grid()
+
+
+    plt.close()
+
+print("\n✅ LSTM early prediction complete!")
