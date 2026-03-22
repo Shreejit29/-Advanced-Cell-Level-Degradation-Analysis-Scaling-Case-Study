@@ -1,6 +1,7 @@
 Advanced-Cell-Level-Degradation-Analysis-Scaling-Case-Study
 This project provides a comprehensive analysis of battery capacity degradation and remaining useful life (RUL) using experimental cycling data. It processes raw battery test data, computes health metrics, detects anomalous cycles, and applies multiple modeling approaches (statistical and machine learning) to predict end-of-life. Key steps include cleaning and structuring the data, deriving features like Coulombic/Energy Efficiency and a Combined Efficiency Factor (CEF), applying anomaly detection algorithms, and forecasting RUL with extrapolation, linear regression, and LSTM models. The goal is to identify the cycle at which capacity drops below 80% of initial value (the defined end-of-life threshold) and to flag early signs of degradation.
-•	Data Preprocessing: Clean raw data and aggregate per cycle. 
+
+**•	Data Preprocessing: Clean raw data and aggregate per cycle. **
 •	Efficiency Metrics: Compute per-cycle Coulombic Efficiency, Energy Efficiency, and the Combined Efficiency Factor (CEF). 
 •	Anomaly Detection: Use statistical and ML methods (Isolation Forest, LOF, Mahalanobis, K-Means) to flag abnormal cycles.
 •	Advanced Degradation Modeling: Analyze battery degradation behavior using multiple approaches: Capacity fade analysis (cycle-by-cycle degradation trends), Different modelling approaches (regression-based fitting), Differential voltage (dV/dQ) analysis for electrochemical insights and Coulombic efficiency trend analysis for performance degradation
