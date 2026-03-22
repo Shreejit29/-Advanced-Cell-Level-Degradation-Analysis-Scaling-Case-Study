@@ -7,16 +7,16 @@ from glob import glob
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense
 
-# =============================
+
 # PARAMETERS
-# =============================
+
 window = 5
 threshold = 0.8
 max_cycle_limit = 100
 
-# =============================
+
 # PATHS
-# =============================
+
 data_folder = "data/processed/"
 
 
@@ -24,9 +24,9 @@ files = glob(os.path.join(data_folder, "*.xlsx"))
 
 print("Files found:", files)
 
-# =============================
+
 # LOOP
-# =============================
+
 for file in files:
 
     print("\n" + "="*50)
@@ -35,16 +35,16 @@ for file in files:
     df = pd.read_excel(file)
     name = os.path.basename(file).replace(".xlsx", "")
 
-    # -----------------------------
+  
     # DATA
-    # -----------------------------
+   
     cycle = df['Cycle_Number'].values
     capacity = df['Discharge_Capacity'].values
     capacity_norm = capacity / capacity[0]
 
-    # =============================
+   
     # ACTUAL FAILURE
-    # =============================
+    
     try:
         actual_idx = np.where(capacity_norm <= threshold)[0][0]
         actual_failure = cycle[actual_idx]
@@ -53,9 +53,9 @@ for file in files:
 
     print(f"Actual Failure Cycle: {actual_failure}")
 
-    # =============================
-    # 🔥 EARLY TRAINING
-    # =============================
+   
+    #  EARLY TRAINING
+   
     if actual_failure is not None:
         cutoff_cycle = int(0.6 * actual_failure)
     else:
@@ -69,9 +69,9 @@ for file in files:
 
     print(f"Training up to cycle: {current_cycle}")
 
-    # =============================
+   
     # CREATE SEQUENCES
-    # =============================
+   
     X_seq, y_seq = [], []
 
     for i in range(len(cap_early) - window):
@@ -83,9 +83,9 @@ for file in files:
 
     X_seq = X_seq.reshape((X_seq.shape[0], X_seq.shape[1], 1))
 
-    # =============================
+
     # MODEL
-    # =============================
+   
     model = Sequential()
     model.add(LSTM(50, activation='relu', input_shape=(window,1)))
     model.add(Dense(1))
@@ -93,9 +93,9 @@ for file in files:
     model.compile(optimizer='adam', loss='mse')
     model.fit(X_seq, y_seq, epochs=30, verbose=0)
 
-    # =============================
+    
     # FUTURE PREDICTION
-    # =============================
+    
     last_sequence = cap_early[-window:].tolist()
     future_predictions = []
 
@@ -111,15 +111,14 @@ for file in files:
         future_predictions.append(pred)
         last_sequence.append(pred)
 
-    # =============================
     # COMBINE
-    # =============================
+  
     pred_full = np.concatenate([cap_early, future_predictions])
     full_cycles = np.arange(1, len(pred_full) + 1)
 
-    # =============================
+   
     # FIND FAILURE + RUL
-    # =============================
+  
     predicted_failure = None
     rul = None
     error = None
@@ -138,9 +137,9 @@ for file in files:
     print(f"RUL: {rul}")
     print(f"Error: {error}")
 
-    # =============================
-    # 📊 PLOT
-    # =============================
+
+    #  PLOT
+
     plt.figure(figsize=(8,5))
 
     plt.plot(cycle, capacity_norm, color='black', label='Actual')
@@ -165,4 +164,4 @@ for file in files:
 
     plt.show()
 
-print("\n✅ LSTM early prediction complete!")
+print("\n LSTM early prediction complete!")
