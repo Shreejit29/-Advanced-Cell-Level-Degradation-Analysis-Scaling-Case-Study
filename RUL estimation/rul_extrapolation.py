@@ -6,24 +6,24 @@ from glob import glob
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.linear_model import LinearRegression
 
-# =============================
+
 # SETTINGS
-# =============================
+
 threshold = 0.8
 max_cycle_limit = 100
 
-# -----------------------------
+
 # COLOR MAP
-# -----------------------------
+
 colors = {
     1: 'blue',
     2: 'green',
     3: 'orange'
 }
 
-# =============================
+
 # PATH
-# =============================
+
 data_folder = "data/processed/"
 
 
@@ -31,9 +31,9 @@ files = glob(os.path.join(data_folder, "*.xlsx"))
 
 print("Files found:", files)
 
-# =============================
+
 # LOOP THROUGH DATASETS
-# =============================
+
 for file in files:
 
     print("\n" + "="*50)
@@ -42,16 +42,15 @@ for file in files:
     df = pd.read_excel(file)
     name = os.path.basename(file).replace(".xlsx", "")
 
-    # -----------------------------
+    
     # DATA PREP
-    # -----------------------------
+ 
     cycle = df['Cycle_Number'].values
     capacity = df['Discharge_Capacity'].values
     capacity_norm = capacity / capacity[0]
 
-    # =============================
     # ACTUAL FAILURE
-    # =============================
+   
     try:
         actual_index = np.where(capacity_norm <= threshold)[0][0]
         actual_failure = cycle[actual_index]
@@ -60,9 +59,9 @@ for file in files:
 
     print(f"Actual Failure Cycle: {actual_failure}")
 
-    # =============================
+   
     # EARLY TRAINING
-    # =============================
+
     if actual_failure is not None:
         cutoff_cycle = int(0.6 * actual_failure)
     else:
@@ -76,30 +75,30 @@ for file in files:
 
     print(f"Training up to cycle: {current_cycle}")
 
-    # =============================
+
     # FUTURE RANGE (UP TO 100)
-    # =============================
+    
     future_cycles = np.arange(current_cycle + 1, max_cycle_limit + 1)
 
-    # =============================
+    
     # MODEL INPUT
-    # =============================
+    
     X = cycle_early.reshape(-1,1)
     y = cap_early
 
     degrees = [1, 2, 3]
 
-    # =============================
+    
     # PLOT SETUP
-    # =============================
+    
     plt.figure(figsize=(8,5))
 
     # Actual data
     plt.plot(cycle, capacity_norm, 'o', color='black', label='Actual')
 
-    # =============================
+    
     # MODELS
-    # =============================
+    
     for deg in degrees:
 
         poly = PolynomialFeatures(degree=deg)
@@ -115,9 +114,9 @@ for file in files:
         full_poly = poly.transform(full_cycles_reshaped)
         pred = model.predict(full_poly)
 
-        # -----------------------------
+    
         # FIND FAILURE
-        # -----------------------------
+        
         predicted_failure = None
         rul = None
         error = None
@@ -131,17 +130,17 @@ for file in files:
                     error = abs(predicted_failure - actual_failure)
                 break
 
-        # -----------------------------
+      
         # PRINT RESULTS
-        # -----------------------------
+
         print(f"\n{name} | Degree {deg}")
         print(f"Predicted Failure Cycle: {predicted_failure}")
         print(f"RUL (Remaining Cycles): {rul}")
         print(f"Prediction Error: {error}")
 
-        # -----------------------------
+      
         # PLOT MODEL
-        # -----------------------------
+   
         plt.plot(full_cycles, pred,
                  color=colors[deg],
                  linewidth=2,
@@ -154,9 +153,9 @@ for file in files:
                         linestyle='--',
                         alpha=0.7)
 
-    # -----------------------------
+ 
     # THRESHOLD
-    # -----------------------------
+
     plt.axhline(y=threshold,
                 color='red',
                 linestyle='--',
@@ -178,9 +177,9 @@ for file in files:
                 linewidth=2,
                 label='Training Cutoff')
 
-    # -----------------------------
+   
     # FINAL SETTINGS
-    # -----------------------------
+   
     plt.xlabel("Cycle Number")
     plt.ylabel("Normalized Capacity")
     plt.title(f"Capacity Extrapolation (Early Prediction) - {name}")
@@ -190,4 +189,4 @@ for file in files:
   
     plt.show()
 
-print("\n✅ Final Capacity Extrapolation Completed!")
+print("\n Final Capacity Extrapolation Completed!")
